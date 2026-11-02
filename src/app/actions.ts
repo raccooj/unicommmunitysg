@@ -24,10 +24,15 @@ export async function signIn(_: FormState, form: FormData): Promise<FormState> {
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
-    const msg = /confirm/i.test(error.message)
-      ? "Please confirm your email first — check your inbox."
-      : "Incorrect email or password.";
-    return { error: msg, fields: { email } };
+    if (error.code === "email_not_confirmed") {
+      return { error: "Please confirm your email first — check your inbox.", fields: { email } };
+    }
+    if (error.code === "invalid_credentials") {
+      return { error: "Incorrect email or password.", fields: { email } };
+    }
+    // Anything else is a configuration or network problem, not a wrong password.
+    console.error("signIn failed", error.status, error.code, error.message);
+    return { error: `Sign-in is unavailable right now (${error.code ?? error.status ?? "error"}). Please try again later.`, fields: { email } };
   }
   redirect("/");
 }
