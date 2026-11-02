@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Campus SG
 
-## Getting Started
+Anonymous, mobile-first community boards for students at **NUS, NTU, SMU and SIM**.
+University membership is **self-declared and not verified**. Not affiliated with any university.
 
-First, run the development server:
+Stack: Next.js 16 (App Router, Server Actions) · TypeScript · Tailwind CSS 4 · Supabase (Auth + Postgres RLS).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Flow: sign up / log in → choose university (once) → university feed (General / Academics / Campus Life) → write post → open post → comment.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Create a Supabase project.
+2. **SQL Editor** → paste and run `supabase/migrations/0001_campus_sg.sql` (safe to re-run).
+3. **Authentication → URL Configuration**: set *Site URL* to your deployed URL and add
+   `http://localhost:3000/auth/callback` and `https://<your-domain>/auth/callback` to *Redirect URLs*.
+   (For a quick demo you may instead turn off *Confirm email* under Authentication → Providers → Email.)
+4. `cp .env.example .env.local` and fill in values from **Project Settings → API** (URL + anon/publishable key only).
+5. `npm install && npm run dev`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deploy (Vercel)
 
-## Learn More
+Import the repo in Vercel, add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`, deploy, then add the
+production URL to Supabase Redirect URLs (step 3). Never add the service role key — the app does not need it.
 
-To learn more about Next.js, take a look at the following resources:
+## Security model (enforced in Postgres)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `profiles`: users read/update only their own row; university can be set once and never changed.
+- `posts` / `comments`: readable only when the post's university equals the reader's university.
+- `author_id`, `university` (posts) and `is_op` (comments) are set by triggers from the session — clients cannot supply them.
+- Column-level grants hide `author_id` from clients entirely; feed and comments show only "Anonymous".
+- Only authors may update/delete their own posts and comments. `anon` has no table access.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`npm run test:rls` runs 36 authorization checks against the migration in an in-memory Postgres (PGlite) with a stubbed `auth` schema.
 
-## Deploy on Vercel
+### Anonymity limitations
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Supabase (and project admins) can link every post and comment to an account and email.
+- Comments by the post's author are labelled "Anonymous (author)" — readers learn that those come from the same person.
+- Timing, writing style and post content can still identify people; small communities make this easier.
+- Self-declared university: anyone can claim any of the four universities with any email address.
